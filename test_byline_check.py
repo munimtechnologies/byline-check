@@ -228,6 +228,61 @@ class PitchTests(unittest.TestCase):
         self.assertEqual(bc.registrable_domain("janedoe.example"), "janedoe.example")
 
 
+class PersonaTests(unittest.TestCase):
+    def test_documented_persona(self):
+        found = bc.persona_matches("Ervin Hoskins")
+        self.assertEqual([p["name"] for p in found], ["Ervin B. Hoskins"])
+        self.assertEqual(found[0]["kind"], "invented")
+        self.assertEqual(found[0]["source"], bc.OPENAI_2026)
+
+    def test_accents_and_titles(self):
+        self.assertEqual([p["name"] for p in bc.persona_matches("Genevieve Tremblay")], ["Geneviève Tremblay"])
+        self.assertEqual([p["name"] for p in bc.persona_matches("Dr. Alice Johnson")], ["Alice Johnson"])
+
+    def test_no_match(self):
+        self.assertEqual(bc.persona_matches("Jane Doe"), [])
+        self.assertEqual(bc.persona_matches("Williams"), [])
+        self.assertEqual(bc.persona_matches("Jenny Williamson"), [])
+        self.assertEqual(bc.persona_matches(""), [])
+
+    def test_every_case_has_a_source(self):
+        for name, kind, what, source in bc.PERSONAS:
+            self.assertIn(kind, ("invented", "impersonated"))
+            self.assertTrue(source.startswith("https://"), name)
+            self.assertTrue(what.endswith("."), name)
+
+    def test_markdown(self):
+        md = bc.render_markdown(bc.run_checks("Margaux Blanchard", "Hello"))
+        self.assertIn("Margaux Blanchard was the byline of stories WIRED", md)
+        self.assertIn("Real people share names", md)
+        md = bc.render_markdown(bc.run_checks("Caroline Williams", "Hello"))
+        self.assertIn("Caroline Williams is the name of a real science journalist.", md)
+        self.assertIn("Unless this is a namesake", md)
+        self.assertNotIn("Real people share names", md)
+
+
+class LookalikeTests(unittest.TestCase):
+    def test_kuow_address(self):
+        self.assertEqual(bc.lookalike_addresses(["k.campbelkuow.org@gmail.com"]),
+                         [{"address": "k.campbelkuow.org@gmail.com", "looks_like": "campbelkuow.org"}])
+
+    def test_outlet_domain_inside_name(self):
+        self.assertEqual(bc.lookalike_addresses(["NYTimes.com.Desk@Outlook.com"]),
+                         [{"address": "NYTimes.com.Desk@Outlook.com", "looks_like": "nytimes.com"}])
+
+    def test_ordinary_addresses(self):
+        self.assertEqual(bc.lookalike_addresses(["jane.doe@gmail.com", "minecraft.comics@gmail.com",
+                                                 "desk@kuow.org", "nytimes.com@janedoe.example", "nobody"]), [])
+
+    def test_markdown(self):
+        report = bc.run_checks("Katie Campbell", "I'd love to feature your book. Reply to k.campbelkuow.org@gmail.com")
+        self.assertEqual(report["pitch_addresses"], ["k.campbelkuow.org@gmail.com"])
+        md = bc.render_markdown(report)
+        self.assertIn("k.campbelkuow.org@gmail.com is a free webmail address", md)
+        self.assertIn("Katie Campbell is the name of a real KUOW reporter.", md)
+        json.dumps(report)
+
+
 class EmailTests(unittest.TestCase):
     def setUp(self):
         self.sender = bc.parse_email(EML)
@@ -271,6 +326,8 @@ class EmailTests(unittest.TestCase):
         self.assertEqual(report["domains_to_check"], ["janedoe.example"])
         self.assertEqual(report["free_mail_domains"], ["gmail.com"])
         self.assertEqual([f["flag"] for f in report["pitch_flags"]], ["email-only"])
+        self.assertEqual(report["persona_matches"], [])
+        self.assertEqual(report["lookalike_addresses"], [])
         md = bc.render_markdown(report)
         self.assertIn("Sent from: jane@janedoe.example", md)
         self.assertIn("replies go to", md)
@@ -443,6 +500,7 @@ class RunTests(unittest.TestCase):
         self.assertIn("the pitch came from jane.doe@gmail.com, but the writer's own site lists", md)
         self.assertIn("Still to do by a person", md)
         self.assertIn("Alex Moreno", md)
+        self.assertIn("ask how they verified the writer", md)
 
     def test_json_serialisable(self):
         json.dumps(self.report)
@@ -486,6 +544,16 @@ class CliTests(unittest.TestCase):
         self.assertEqual(data["clip_urls"], [CLIP])
         self.assertEqual(data["clips"], [])
         self.assertIsNone(data["sender"])
+        self.assertEqual(data["persona_matches"], [])
+
+    def test_offline_persona_to_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = os.path.join(tmp, "sheet.md")
+            self.assertEqual(bc.main(["--name", "Noah Lamington", "--offline", "--out", out]), 0)
+            with open(out, encoding="utf-8") as fh:
+                sheet = fh.read()
+        self.assertIn("Noah Lamington was the byline of one of seven fake journalist personas", sheet)
+        self.assertIn(bc.OPENAI_2026, sheet)
 
 
 if __name__ == "__main__":

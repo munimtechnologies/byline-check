@@ -4,8 +4,8 @@
 It does not decide whether a writer is real, and it does no AI-text detection.
 It runs the checks editors used after the fake-freelancer cases of 2025-2026
 (claimed clips, bylines, removed stories, domain age, reused quotes, who the
-pitch really came from) and lists what a person still has to verify.
-Standard library only.
+pitch really came from, bylines already documented as fake or impersonated)
+and lists what a person still has to verify. Standard library only.
 
     python byline_check.py --name "Jane Doe" --pitch pitch.eml --draft draft.txt
     python byline_check.py --name "Jane Doe" --clip https://example.com/story --json
@@ -26,7 +26,7 @@ from email import policy
 from email.utils import getaddresses
 from html.parser import HTMLParser
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 USER_AGENT = "byline-check/%s (+https://github.com/munimv2/byline-check)" % __version__
 TIMEOUT = 20
@@ -151,6 +151,48 @@ RED_FLAGS = [
         ],
     ),
 ]
+
+# Bylines documented in published reporting as invented personas, and real
+# writers documented as impersonated. A name match is never proof: real people
+# share these names. Add a case only with a public source.
+OPENAI_2026 = "https://openai.com/index/disrupting-ai-enabled-false-front-operations/"
+BOGUS_BYLINES = ("one of seven fake journalist personas in the 'Bogus Bylines' operation that OpenAI "
+                 "reported on 8 Oct 2026; almost 100 articles ran under them in about a dozen "
+                 "outlets between July 2025 and October 2026.")
+WE_NEWS = ("an AI-generated staff persona of the We News site, reported by The Canadian Press on "
+           "3 Oct 2026.")
+WE_NEWS_SOURCE = "https://www.cp24.com/news/canada/2026/10/03/byline-or-bot-ai-generated-journalists-start-to-appear-in-canada/"
+PERSONAS = [
+    ("Margaux Blanchard", "invented",
+     "stories WIRED, Business Insider and other outlets removed in 2025; the writer could not "
+     "be shown to exist.",
+     "https://pressgazette.co.uk/publishers/digital-journalism/margaux-blanchard-wired-ai-editors-journalist/"),
+    ("Daniel Robson", "invented",
+     "a persona whose columns the Ottawa Citizen and other outlets removed in September 2026; "
+     "he communicated only by email and refused a video call.",
+     "https://www.cbc.ca/news/canada/daniel-robson-suspected-fake-ai-persona-9.7363967"),
+    ("Ervin B. Hoskins", "invented", BOGUS_BYLINES, OPENAI_2026),
+    ("Noah Lamington", "invented", BOGUS_BYLINES, OPENAI_2026),
+    ("Sophia Gonzalez", "invented", BOGUS_BYLINES, OPENAI_2026),
+    ("Michael Harrison", "invented", BOGUS_BYLINES, OPENAI_2026),
+    ("Ericka Feusier", "invented", BOGUS_BYLINES, OPENAI_2026),
+    ("Jenny Williams", "invented", BOGUS_BYLINES, OPENAI_2026),
+    ("Alice Johnson", "invented", BOGUS_BYLINES, OPENAI_2026),
+    ("Geneviève Tremblay", "invented", WE_NEWS, WE_NEWS_SOURCE),
+    ("Gordon Halloway", "invented", WE_NEWS, WE_NEWS_SOURCE),
+    ("Caroline Williams", "impersonated",
+     "a real science journalist. In 2026 an impostor used her name and clips to sell Science a "
+     "story, which Science removed three months later, and then pitched Science and Knowable again.",
+     "https://www.cjr.org/analysis/fake-caroline-williams-science-nature-magazine-ai-influx-pitches.php"),
+    ("Katie Campbell", "impersonated",
+     "a real KUOW reporter. In 2026 scammers used her name and Gmail addresses made to look like "
+     "KUOW's to email book authors, then asked them to pay for interviews.",
+     "https://kuow.org/technology/2026-10-12/scammers-used-ai-to-impersonate-me-a-kuow-reporter-heres-how-to-avoid-such-traps"),
+]
+
+# Webmail names that end like a web address (k.campbelkuow.org@gmail.com in
+# the KUOW case) dress a free account up as an organisation's.
+LOOKALIKE_LOCAL_RE = re.compile(r"[a-z0-9\-]+\.(?:com|org|net|edu|gov|news|media|co\.uk|org\.uk)$")
 
 REMOVAL_PATTERNS = [
     r"\b(?:this|the)\s+(?:article|story|piece|essay|column|post)\s+(?:has\s+been|was)\s+"
@@ -323,6 +365,32 @@ def red_flags(text):
                 found.append({"flag": key, "label": label, "match": _snippet(text, m.start(), m.end()), "why": why})
                 break
     return found
+
+
+def persona_matches(name):
+    """Documented invented or impersonated bylines that match the name on the pitch."""
+    if len(normalize_name(name).split()) < 2:
+        return []
+    return [{"name": p, "kind": kind, "what": what, "source": source}
+            for p, kind, what, source in PERSONAS
+            if name_matches(name, p) or name_matches(p, name)]
+
+
+def lookalike_addresses(addresses):
+    """Webmail addresses whose name part looks like a newsroom's or other organisation's domain."""
+    out = []
+    for address in addresses:
+        local, _, domain = address.lower().rpartition("@")
+        if not local or registrable_domain(domain) not in FREE_MAIL:
+            continue
+        hit = next((d for _, domains in OUTLETS for d in domains
+                    if re.search(r"(?<![a-z0-9])%s(?![a-z0-9])" % re.escape(d), local)), None)
+        if not hit:
+            m = LOOKALIKE_LOCAL_RE.search(local)
+            hit = m.group(0) if m else None
+        if hit:
+            out.append({"address": address, "looks_like": hit})
+    return out
 
 
 def claimed_outlets(text):
@@ -856,7 +924,10 @@ HUMAN_STEPS = [
     "yourself, and ask whether they spoke to the writer. That is how The Local's editor found "
     "sources who had never spoken to a freelancer he was checking.",
     "Confirm earlier bylines with editors at those outlets, reached through the outlet's own "
-    "masthead or switchboard, not through contacts supplied in the pitch.",
+    "masthead or switchboard, not through contacts supplied in the pitch, and ask how they "
+    "verified the writer. Earlier bylines are not a reference on their own: the 'Bogus Bylines' "
+    "personas cited their earlier placements as credentials, and one newspaper ran a syndicated "
+    "column because it trusted the syndicator.",
     "Ask for an annotated draft or the document's version history. The Local now asks authors "
     "for annotated drafts, and some freelancers offer editors their Google Docs history.",
     "Before publishing, confirm every quote with the person quoted. Science removed a story "
@@ -896,9 +967,11 @@ def run_checks(name, pitch="", draft="", clips=(), sites=(), fetch_fn=None, toda
         "name": name,
         "checked_on": today.isoformat(),
         "offline": fetch_fn is None,
+        "persona_matches": persona_matches(name),
         "sender": sender and {k: sender[k] for k in ("from", "reply_to", "auth", "subject")},
         "sender_notes": sender_notes(sender),
         "pitch_addresses": pitch_addresses,
+        "lookalike_addresses": lookalike_addresses(pitch_addresses),
         "pitch_flags": red_flags(pitch),
         "claimed_outlets_without_clips": unbacked_outlets(claimed_outlets(pitch), clip_urls),
         "free_mail_domains": free_mail,
@@ -921,6 +994,29 @@ def run_checks(name, pitch="", draft="", clips=(), sites=(), fetch_fn=None, toda
             site_emails = _dedupe(e for s in report["site_contacts"] for e in s["emails"])
             report["contact_match"] = compare_contacts(pitch_addresses, site_emails)
     return report
+
+
+def _persona_lines(r):
+    lines = []
+    for p in r["persona_matches"]:
+        if p["kind"] == "impersonated":
+            lines.append("- **Check:** %s is the name of %s Unless this is a namesake, reach the writer "
+                         "through contact details you find yourself and ask them to confirm this pitch. "
+                         "Source: %s"
+                         % (p["name"], p["what"], p["source"]))
+        else:
+            lines.append("- **Check:** %s was the byline of %s Real people share names, so this proves "
+                         "nothing alone; confirm who you are dealing with on a live call. Source: %s"
+                         % (p["name"], p["what"], p["source"]))
+    return lines
+
+
+def _lookalike_lines(r):
+    return ["- **Check:** %s is a free webmail address whose name part looks like a web address (%s). "
+            "In 2026 scammers posing as a KUOW reporter wrote from k.campbelkuow.org@gmail.com. "
+            "Confirm with that organisation, through contact details you find yourself, that the "
+            "sender works there." % (a["address"], a["looks_like"])
+            for a in r["lookalike_addresses"]]
 
 
 def _clip_lines(c):
@@ -1002,9 +1098,11 @@ def render_markdown(r):
         "",
         "## 1. Pitch and correspondence",
     ]
+    out += _persona_lines(r)
     if r["sender"]:
         out.append("- Sent from: %s" % (", ".join(r["sender"]["from"]) or "no From address"))
         out += ["- " + note for note in r["sender_notes"]]
+    out += _lookalike_lines(r)
     if r["pitch_flags"]:
         for f in r["pitch_flags"]:
             out.append("- **%s:** \"%s\". %s" % (f["label"], f["match"], f["why"]))
