@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import sys
 import tempfile
 import unittest
@@ -9,6 +10,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
 import byline_check as bc  # noqa: E402
+
+DATASET = os.path.join(HERE, "personas.json")
 
 ARTICLE = """<!DOCTYPE html><html><head><title>Minecraft weddings</title>
 <meta name="author" content="Jane Q. Doe">
@@ -46,6 +49,15 @@ REMOVED = """<html><head><meta name="byl" content="By Margo Example"></head><bod
 <p>Editor&rsquo;s note: This article has been removed after we determined the author was
 impersonating an established journalist.</p></body></html>"""
 
+# A clip under a documented persona's byline, and one whose only author data
+# is an author-page URL named after a persona.
+PERSONA_PAGE = """<html><head><title>Op-ed</title><meta name="author" content="Alice Johnson"></head>
+<body><p>&ldquo;Blue walls calm anxious dogs within days,&rdquo; said Dr Eleni Nicolaou, an art therapist.</p>
+</body></html>"""
+PERSONA_AUTHOR_URL = ('<html><head><meta property="article:author" '
+                      'content="https://www.middleeastmonitor.com/authors/ervin-hoskins/"></head>'
+                      '<body>Column</body></html>')
+
 PITCH = """Hi, I'm Jane Doe, a freelancer who has written for WIRED and Business Insider.
 Clips: https://www.wired.com/story/minecraft-weddings/ and https://janedoe.example/about.
 I'm travelling, so I can only communicate by email for now. Could you pay me via PayPal?
@@ -53,6 +65,9 @@ jane.doe@gmail.com"""
 
 DRAFT = """Couples now marry inside games. "We wanted our friends from every continent to be there with us," said Maria Lopez, who married in March.
 "Short one," she said."""
+
+EXPERT_DRAFT = """Pet owners are repainting. "A soft blue wall can lower your dog's stress in a matter of days," said Dr. Eleni Nicolaou, an art therapist.
+Maria Lopez said she tried it."""
 
 EML = """Return-Path: <bounce@mailer.example>
 Authentication-Results: mx.newsroom.example; spf=softfail smtp.mailfrom=mailer.example; dkim=none; dmarc=fail header.from=janedoe.example
@@ -155,6 +170,10 @@ class PageTests(unittest.TestCase):
     def test_people_quoted(self):
         self.assertEqual(self.page["people_quoted"], ["Alex Moreno", "Priya Shah", "Lee Park"])
 
+    def test_no_persona_or_fake_expert(self):
+        self.assertEqual(self.page["persona_bylines"], [])
+        self.assertEqual(self.page["fake_experts_quoted"], [])
+
     def test_scripts_are_not_text(self):
         self.assertNotIn("Fake Person", self.page["people_quoted"])
 
@@ -182,6 +201,7 @@ class PageTests(unittest.TestCase):
         self.assertEqual(page["bylines"], ["Jane Doe"])
         self.assertEqual(page["author_urls"], ["https://www.facebook.com/examplemag"])
         self.assertTrue(page["byline_match"])
+        self.assertEqual(page["persona_bylines"], [])
 
     def test_author_page_url_matches(self):
         page = bc.analyze_page(PROFILE, "Jane Doe")
@@ -234,10 +254,18 @@ class PersonaTests(unittest.TestCase):
         self.assertEqual([p["name"] for p in found], ["Ervin B. Hoskins"])
         self.assertEqual(found[0]["kind"], "invented")
         self.assertEqual(found[0]["source"], bc.OPENAI_2026)
+        self.assertIn("Middle East Monitor", found[0]["outlets"])
 
     def test_accents_and_titles(self):
         self.assertEqual([p["name"] for p in bc.persona_matches("Genevieve Tremblay")], ["Geneviève Tremblay"])
         self.assertEqual([p["name"] for p in bc.persona_matches("Dr. Alice Johnson")], ["Alice Johnson"])
+
+    def test_hyphenated_name(self):
+        self.assertEqual([p["name"] for p in bc.persona_matches("Ruth Jackson-Kirby")], ["Ruth Jackson-Kirby"])
+
+    def test_kinds_filter(self):
+        self.assertEqual(bc.persona_matches("Eleni Nicolaou", kinds=("invented",)), [])
+        self.assertEqual([p["kind"] for p in bc.persona_matches("Eleni Nicolaou")], ["fake_expert"])
 
     def test_no_match(self):
         self.assertEqual(bc.persona_matches("Jane Doe"), [])
@@ -245,20 +273,86 @@ class PersonaTests(unittest.TestCase):
         self.assertEqual(bc.persona_matches("Jenny Williamson"), [])
         self.assertEqual(bc.persona_matches(""), [])
 
-    def test_every_case_has_a_source(self):
-        for name, kind, what, source in bc.PERSONAS:
-            self.assertIn(kind, ("invented", "impersonated"))
-            self.assertTrue(source.startswith("https://"), name)
-            self.assertTrue(what.endswith("."), name)
+    def test_every_case_is_sourced(self):
+        names = []
+        for case in bc.PERSONAS:
+            name = case["name"]
+            names.append(name)
+            self.assertIn(case["kind"], bc.CASE_KINDS, name)
+            self.assertTrue(case["sources"], name)
+            for source in case["sources"]:
+                self.assertTrue(source.startswith("https://"), name)
+            self.assertTrue(case["what"].endswith("."), name)
+            self.assertRegex(case["reported"], r"^\d{4}-\d{2}$")
+            for outlet in case["outlets"]:
+                self.assertTrue(outlet["name"], name)
+                domain = outlet["domain"]
+                if domain is not None:
+                    self.assertTrue(re.match(r"^[a-z0-9.\-]+\.[a-z]{2,}$", domain), domain)
+                    self.assertFalse(domain.startswith("www."), domain)
+        self.assertEqual(len(names), len(set(names)))
 
     def test_markdown(self):
         md = bc.render_markdown(bc.run_checks("Margaux Blanchard", "Hello"))
         self.assertIn("Margaux Blanchard was the byline of stories WIRED", md)
+        self.assertIn("Documented outlets: WIRED, Business Insider, SFGate", md)
         self.assertIn("Real people share names", md)
         md = bc.render_markdown(bc.run_checks("Caroline Williams", "Hello"))
         self.assertIn("Caroline Williams is the name of a real science journalist.", md)
         self.assertIn("Unless this is a namesake", md)
         self.assertNotIn("Real people share names", md)
+        md = bc.render_markdown(bc.run_checks("Ruth Jackson-Kirby", "Hello"))
+        self.assertIn("Ruth Jackson-Kirby is the name of a real UK personal-finance journalist.", md)
+
+
+class DatasetTests(unittest.TestCase):
+    def test_dataset_is_json(self):
+        data = json.loads(json.dumps(bc.cases_dataset()))
+        self.assertEqual(data["cases"], bc.PERSONAS)
+        self.assertEqual(data["version"], bc.__version__)
+
+    @unittest.skipUnless(os.path.exists(DATASET), "personas.json not next to the tests")
+    def test_personas_json_matches_code(self):
+        with open(DATASET, encoding="utf-8") as fh:
+            data = json.load(fh)
+        self.assertEqual(data["kinds"], bc.CASE_KINDS)
+        for want, have in zip(bc.PERSONAS, data["cases"]):
+            self.assertEqual(have, want, want["name"])
+        self.assertEqual(len(data["cases"]), len(bc.PERSONAS))
+
+
+class PersonaClipTests(unittest.TestCase):
+    def test_persona_byline_on_documented_outlet(self):
+        page = bc.analyze_page(PERSONA_PAGE, "Jane Doe", "https://www.fairobserver.com/region/op-ed/")
+        self.assertEqual(page["persona_bylines"], [{"name": "Alice Johnson", "byline": "Alice Johnson",
+                                                    "source": bc.OPENAI_2026, "outlet": "Fair Observer"}])
+
+    def test_persona_byline_elsewhere(self):
+        page = bc.analyze_page(PERSONA_PAGE, "Jane Doe", "https://news.example/op-ed/")
+        self.assertEqual(len(page["persona_bylines"]), 1)
+        self.assertIsNone(page["persona_bylines"][0]["outlet"])
+
+    def test_persona_author_page_url(self):
+        page = bc.analyze_page(PERSONA_AUTHOR_URL, "Jane Doe", "https://www.middleeastmonitor.com/20260501-column/")
+        self.assertEqual([(p["name"], p["outlet"]) for p in page["persona_bylines"]],
+                         [("Ervin B. Hoskins", "Middle East Monitor")])
+
+    def test_impersonated_writer_is_not_a_persona_byline(self):
+        self.assertEqual(bc.persona_bylines(["Caroline Williams"], url="https://www.science.org/x"), [])
+
+    def test_fake_expert_quoted_in_clip(self):
+        page = bc.analyze_page(PERSONA_PAGE, "Jane Doe")
+        self.assertEqual(page["people_quoted"], ["Eleni Nicolaou"])
+        self.assertEqual([p["name"] for p in page["fake_experts_quoted"]], ["Eleni Nicolaou"])
+
+    def test_clip_lines(self):
+        url = "https://www.fairobserver.com/region/op-ed/"
+        clip = bc.check_clip(url, "Jane Doe", fake_fetch({url: ok(url, PERSONA_PAGE)}))
+        lines = "\n".join(bc._clip_lines(clip))
+        self.assertIn("the byline Alice Johnson matches Alice Johnson, a documented invented persona. "
+                      "This clip is on Fair Observer", lines)
+        self.assertIn("the clip quotes Eleni Nicolaou, the name of an art-therapist persona", lines)
+        json.dumps(clip)
 
 
 class LookalikeTests(unittest.TestCase):
@@ -379,6 +473,19 @@ class DraftTests(unittest.TestCase):
     def test_writer_excluded(self):
         self.assertEqual(bc.quoted_people("It works, said Jane Doe.", exclude="Jane Doe"), [])
 
+    def test_fake_expert_in_draft(self):
+        report = bc.run_checks("Jane Doe", "Hello", EXPERT_DRAFT)
+        self.assertEqual(report["draft_people_quoted"], ["Eleni Nicolaou", "Maria Lopez"])
+        self.assertEqual([p["name"] for p in report["draft_fake_experts"]], ["Eleni Nicolaou"])
+        self.assertEqual(report["draft_fake_experts"][0]["quoted_as"], "Eleni Nicolaou")
+        md = bc.render_markdown(report)
+        self.assertIn("the draft quotes Eleni Nicolaou, the name of an art-therapist persona", md)
+        self.assertIn(bc.PG_EXPERTS, md)
+        json.dumps(report)
+
+    def test_no_fake_expert(self):
+        self.assertEqual(bc.run_checks("Jane Doe", "Hello", DRAFT)["draft_fake_experts"], [])
+
 
 class ParseTests(unittest.TestCase):
     def test_cdx(self):
@@ -437,6 +544,7 @@ class ClipTests(unittest.TestCase):
         self.assertTrue(clip["redirected_home"])
         self.assertIsNone(clip["read_from"])
         self.assertEqual(clip["title"], "")
+        self.assertEqual(clip["persona_bylines"], [])
         self.assertIn("home page", "\n".join(bc._clip_lines(clip)))
 
     def test_author_links_listed_when_no_match(self):
@@ -501,6 +609,7 @@ class RunTests(unittest.TestCase):
         self.assertIn("Still to do by a person", md)
         self.assertIn("Alex Moreno", md)
         self.assertIn("ask how they verified the writer", md)
+        self.assertIn("exists outside expert-matching services", md)
 
     def test_json_serialisable(self):
         json.dumps(self.report)
@@ -545,6 +654,7 @@ class CliTests(unittest.TestCase):
         self.assertEqual(data["clips"], [])
         self.assertIsNone(data["sender"])
         self.assertEqual(data["persona_matches"], [])
+        self.assertEqual(data["draft_fake_experts"], [])
 
     def test_offline_persona_to_file(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -553,7 +663,21 @@ class CliTests(unittest.TestCase):
             with open(out, encoding="utf-8") as fh:
                 sheet = fh.read()
         self.assertIn("Noah Lamington was the byline of one of seven fake journalist personas", sheet)
+        self.assertIn("Documented outlets: Asia Times, International Policy Digest.", sheet)
         self.assertIn(bc.OPENAI_2026, sheet)
+
+    def test_cases_to_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = os.path.join(tmp, "personas.json")
+            self.assertEqual(bc.main(["--cases", "--out", out]), 0)
+            with open(out, encoding="utf-8") as fh:
+                data = json.load(fh)
+        self.assertEqual(data["cases"], bc.PERSONAS)
+        self.assertEqual(data["dataset"], "byline-check documented cases")
+
+    def test_name_required_without_cases(self):
+        with self.assertRaises(SystemExit):
+            bc.main(["--offline"])
 
 
 if __name__ == "__main__":

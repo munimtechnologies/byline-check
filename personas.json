@@ -1,0 +1,263 @@
+{
+  "dataset": "byline-check documented cases",
+  "version": "0.4.0",
+  "homepage": "https://github.com/munimv2/byline-check",
+  "licence": "MIT",
+  "kinds": {
+    "invented": "a byline found by a publisher or platform not to belong to a real writer",
+    "impersonated": "a real writer whose name an impostor used",
+    "fake_expert": "an invented expert quoted as a source"
+  },
+  "note": "Only cases a publisher, platform or the impersonated writer has documented in public, each with its sources. Real people share these names: a match means verify, never fake. outlets lists where the byline or expert appeared; domain is null when no source confirms it. reported is the month the case was first reported.",
+  "cases": [
+    {
+      "name": "Margaux Blanchard",
+      "kind": "invented",
+      "what": "stories WIRED, Business Insider and other outlets removed in 2025; the writer could not be shown to exist.",
+      "reported": "2025-08",
+      "sources": [
+        "https://pressgazette.co.uk/publishers/digital-journalism/margaux-blanchard-wired-ai-editors-journalist/"
+      ],
+      "outlets": [
+        {"name": "WIRED", "domain": "wired.com"},
+        {"name": "Business Insider", "domain": "businessinsider.com"},
+        {"name": "SFGate", "domain": "sfgate.com"},
+        {"name": "Cone Magazine", "domain": null},
+        {"name": "Naked Politics", "domain": null},
+        {"name": "Index on Censorship", "domain": "indexoncensorship.org"}
+      ],
+      "removed_by": ["WIRED", "Business Insider", "SFGate", "Cone Magazine", "Naked Politics"]
+    },
+    {
+      "name": "Daniel Robson",
+      "kind": "invented",
+      "what": "a persona whose columns the Ottawa Citizen and other outlets removed in September 2026; he communicated only by email and refused a video call.",
+      "reported": "2026-09",
+      "sources": [
+        "https://www.cbc.ca/news/canada/daniel-robson-suspected-fake-ai-persona-9.7363967",
+        "https://www.turkiyetoday.com/world/exclusivefake-ai-columnist-dupes-canadian-press-to-target-moroccan-dissidents-and-a-t-3229120",
+        "https://pressgazette.co.uk/publishers/digital-journalism/ai-journalism-mistakes/"
+      ],
+      "outlets": [
+        {"name": "Ottawa Citizen", "domain": "ottawacitizen.com"},
+        {"name": "Montreal Gazette", "domain": "montrealgazette.com"},
+        {"name": "Policy Options", "domain": "policyoptions.irpp.org"},
+        {"name": "Western Standard", "domain": "westernstandard.news"},
+        {"name": "The Hub", "domain": "thehub.ca"},
+        {"name": "Open Canada", "domain": "opencanada.org"},
+        {"name": "Yahoo News", "domain": null}
+      ],
+      "removed_by": ["Ottawa Citizen", "Montreal Gazette", "Policy Options", "Western Standard", "The Hub", "Open Canada"]
+    },
+    {
+      "name": "Ervin B. Hoskins",
+      "kind": "invented",
+      "what": "one of seven fake journalist personas in the 'Bogus Bylines' operation that OpenAI reported on 8 Oct 2026; almost 100 articles ran under them in about a dozen outlets between July 2025 and October 2026.",
+      "reported": "2026-10",
+      "sources": [
+        "https://openai.com/index/disrupting-ai-enabled-false-front-operations/",
+        "https://marcowenjones.substack.com/p/operation-bogus-bylines-the-pro-iran",
+        "https://pressgazette.co.uk/publishers/digital-journalism/ai-journalism-mistakes/"
+      ],
+      "outlets": [
+        {"name": "Middle East Monitor", "domain": "middleeastmonitor.com"},
+        {"name": "PeaceVoice", "domain": "peacevoice.info"},
+        {"name": "Black Star News", "domain": "blackstarnews.com"},
+        {"name": "Emmitsburg.net", "domain": "emmitsburg.net"},
+        {"name": "Port St. Joe Star", "domain": null},
+        {"name": "Apalachicola Times", "domain": null}
+      ],
+      "removed_by": ["Middle East Monitor", "Port St. Joe Star"]
+    },
+    {
+      "name": "Noah Lamington",
+      "kind": "invented",
+      "what": "one of seven fake journalist personas in the 'Bogus Bylines' operation that OpenAI reported on 8 Oct 2026; almost 100 articles ran under them in about a dozen outlets between July 2025 and October 2026.",
+      "reported": "2026-10",
+      "sources": [
+        "https://openai.com/index/disrupting-ai-enabled-false-front-operations/",
+        "https://marcowenjones.substack.com/p/operation-bogus-bylines-the-pro-iran"
+      ],
+      "outlets": [
+        {"name": "Asia Times", "domain": "asiatimes.com"},
+        {"name": "International Policy Digest", "domain": "intpolicydigest.org"}
+      ],
+      "removed_by": []
+    },
+    {
+      "name": "Sophia Gonzalez",
+      "kind": "invented",
+      "what": "one of seven fake journalist personas in the 'Bogus Bylines' operation that OpenAI reported on 8 Oct 2026; almost 100 articles ran under them in about a dozen outlets between July 2025 and October 2026.",
+      "reported": "2026-10",
+      "sources": [
+        "https://openai.com/index/disrupting-ai-enabled-false-front-operations/",
+        "https://marcowenjones.substack.com/p/operation-bogus-bylines-the-pro-iran"
+      ],
+      "outlets": [
+        {"name": "PeaceVoice", "domain": "peacevoice.info"},
+        {"name": "CounterPunch", "domain": "counterpunch.org"},
+        {"name": "ZNetwork", "domain": "znetwork.org"},
+        {"name": "News-Register", "domain": "newsregister.com"},
+        {"name": "LA Progressive", "domain": "laprogressive.com"},
+        {"name": "Antiwar.com", "domain": "antiwar.com"}
+      ],
+      "removed_by": []
+    },
+    {
+      "name": "Michael Harrison",
+      "kind": "invented",
+      "what": "one of seven fake journalist personas in the 'Bogus Bylines' operation that OpenAI reported on 8 Oct 2026; almost 100 articles ran under them in about a dozen outlets between July 2025 and October 2026.",
+      "reported": "2026-10",
+      "sources": [
+        "https://openai.com/index/disrupting-ai-enabled-false-front-operations/",
+        "https://marcowenjones.substack.com/p/operation-bogus-bylines-the-pro-iran"
+      ],
+      "outlets": [
+        {"name": "Middle East Monitor", "domain": "middleeastmonitor.com"}
+      ],
+      "removed_by": ["Middle East Monitor"]
+    },
+    {
+      "name": "Ericka Feusier",
+      "kind": "invented",
+      "what": "one of seven fake journalist personas in the 'Bogus Bylines' operation that OpenAI reported on 8 Oct 2026; almost 100 articles ran under them in about a dozen outlets between July 2025 and October 2026.",
+      "reported": "2026-10",
+      "sources": [
+        "https://openai.com/index/disrupting-ai-enabled-false-front-operations/",
+        "https://marcowenjones.substack.com/p/operation-bogus-bylines-the-pro-iran"
+      ],
+      "outlets": [
+        {"name": "Foreign Policy in Focus", "domain": "fpif.org"},
+        {"name": "Eurasia Review", "domain": "eurasiareview.com"}
+      ],
+      "removed_by": []
+    },
+    {
+      "name": "Jenny Williams",
+      "kind": "invented",
+      "what": "one of seven fake journalist personas in the 'Bogus Bylines' operation that OpenAI reported on 8 Oct 2026; almost 100 articles ran under them in about a dozen outlets between July 2025 and October 2026.",
+      "reported": "2026-10",
+      "sources": [
+        "https://openai.com/index/disrupting-ai-enabled-false-front-operations/",
+        "https://marcowenjones.substack.com/p/operation-bogus-bylines-the-pro-iran"
+      ],
+      "outlets": [
+        {"name": "Middle East Monitor", "domain": "middleeastmonitor.com"},
+        {"name": "NationofChange", "domain": "nationofchange.org"}
+      ],
+      "removed_by": ["Middle East Monitor"]
+    },
+    {
+      "name": "Alice Johnson",
+      "kind": "invented",
+      "what": "one of seven fake journalist personas in the 'Bogus Bylines' operation that OpenAI reported on 8 Oct 2026; almost 100 articles ran under them in about a dozen outlets between July 2025 and October 2026.",
+      "reported": "2026-10",
+      "sources": [
+        "https://openai.com/index/disrupting-ai-enabled-false-front-operations/",
+        "https://marcowenjones.substack.com/p/operation-bogus-bylines-the-pro-iran"
+      ],
+      "outlets": [
+        {"name": "Middle East Monitor", "domain": "middleeastmonitor.com"},
+        {"name": "Fair Observer", "domain": "fairobserver.com"},
+        {"name": "Libertarian Institute", "domain": "libertarianinstitute.org"}
+      ],
+      "removed_by": ["Middle East Monitor"]
+    },
+    {
+      "name": "Geneviève Tremblay",
+      "kind": "invented",
+      "what": "an AI-generated staff persona of the We News site, reported by The Canadian Press on 3 Oct 2026.",
+      "reported": "2026-10",
+      "sources": [
+        "https://www.cp24.com/news/canada/2026/10/03/byline-or-bot-ai-generated-journalists-start-to-appear-in-canada/"
+      ],
+      "outlets": [
+        {"name": "We News", "domain": null}
+      ],
+      "removed_by": []
+    },
+    {
+      "name": "Gordon Halloway",
+      "kind": "invented",
+      "what": "an AI-generated staff persona of the We News site, reported by The Canadian Press on 3 Oct 2026.",
+      "reported": "2026-10",
+      "sources": [
+        "https://www.cp24.com/news/canada/2026/10/03/byline-or-bot-ai-generated-journalists-start-to-appear-in-canada/"
+      ],
+      "outlets": [
+        {"name": "We News", "domain": null}
+      ],
+      "removed_by": []
+    },
+    {
+      "name": "Caroline Williams",
+      "kind": "impersonated",
+      "what": "a real science journalist. In 2026 an impostor used her name and clips to sell Science a story, which Science removed three months later, and then pitched Science and Knowable again.",
+      "reported": "2026-09",
+      "sources": [
+        "https://www.cjr.org/analysis/fake-caroline-williams-science-nature-magazine-ai-influx-pitches.php"
+      ],
+      "outlets": [
+        {"name": "Science", "domain": "science.org"}
+      ],
+      "removed_by": ["Science"]
+    },
+    {
+      "name": "Katie Campbell",
+      "kind": "impersonated",
+      "what": "a real KUOW reporter. In 2026 scammers used her name and Gmail addresses made to look like KUOW's to email book authors, then asked them to pay for interviews.",
+      "reported": "2026-10",
+      "sources": [
+        "https://kuow.org/technology/2026-10-12/scammers-used-ai-to-impersonate-me-a-kuow-reporter-heres-how-to-avoid-such-traps"
+      ],
+      "outlets": [],
+      "removed_by": []
+    },
+    {
+      "name": "Ruth Jackson-Kirby",
+      "kind": "impersonated",
+      "what": "a real UK personal-finance journalist. In 2026 an impostor pitched FinanceBuzz from an address resembling hers, citing her work history; FinanceBuzz ran articles under her name with an author page showing an AI photo, then took her name and the page down when she objected.",
+      "reported": "2026-09",
+      "sources": [
+        "https://pressgazette.co.uk/publishers/digital-journalism/ai-journalism-mistakes/"
+      ],
+      "outlets": [
+        {"name": "FinanceBuzz", "domain": "financebuzz.com"}
+      ],
+      "removed_by": ["FinanceBuzz"]
+    },
+    {
+      "name": "Eleni Nicolaou",
+      "kind": "fake_expert",
+      "what": "an art-therapist persona, 'Dr Eleni Nicolaou', quoted more than 30 times in 2026 by outlets including Forbes, Vice, Glamour, Tom's Guide and Parade; Press Gazette found she appeared to be AI-generated, and Qwoted removed her profile.",
+      "reported": "2026-09",
+      "sources": [
+        "https://pressgazette.co.uk/news/prominent-art-therapist-quoted-by-vice-forbes-and-others-is-ai-generated/"
+      ],
+      "outlets": [
+        {"name": "Forbes", "domain": "forbes.com"},
+        {"name": "Vice", "domain": "vice.com"},
+        {"name": "Glamour", "domain": "glamour.com"},
+        {"name": "Tom's Guide", "domain": "tomsguide.com"},
+        {"name": "Parade", "domain": "parade.com"},
+        {"name": "Netmums", "domain": "netmums.com"},
+        {"name": "AOL", "domain": "aol.com"},
+        {"name": "Yahoo", "domain": "yahoo.com"}
+      ],
+      "removed_by": ["Qwoted"]
+    },
+    {
+      "name": "Jacob Elban",
+      "kind": "fake_expert",
+      "what": "a 'business expert' persona offered to journalists by the same company as 'Dr Eleni Nicolaou'; Qwoted and Pressflow removed his profile in September 2026 over doubts that he was real.",
+      "reported": "2026-09",
+      "sources": [
+        "https://pressgazette.co.uk/news/prominent-art-therapist-quoted-by-vice-forbes-and-others-is-ai-generated/"
+      ],
+      "outlets": [
+        {"name": "PR On the Go", "domain": null}
+      ],
+      "removed_by": ["Qwoted", "Pressflow"]
+    }
+  ]
+}

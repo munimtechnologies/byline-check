@@ -4,11 +4,12 @@
 It does not decide whether a writer is real, and it does no AI-text detection.
 It runs the checks editors used after the fake-freelancer cases of 2025-2026
 (claimed clips, bylines, removed stories, domain age, reused quotes, who the
-pitch really came from, bylines already documented as fake or impersonated)
-and lists what a person still has to verify. Standard library only.
+pitch really came from, bylines and experts already documented as fake or
+impersonated) and lists what a person still has to verify. Standard library only.
 
     python byline_check.py --name "Jane Doe" --pitch pitch.eml --draft draft.txt
     python byline_check.py --name "Jane Doe" --clip https://example.com/story --json
+    python byline_check.py --cases > personas.json
 """
 
 import argparse
@@ -26,7 +27,7 @@ from email import policy
 from email.utils import getaddresses
 from html.parser import HTMLParser
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 
 USER_AGENT = "byline-check/%s (+https://github.com/munimv2/byline-check)" % __version__
 TIMEOUT = 20
@@ -152,42 +153,108 @@ RED_FLAGS = [
     ),
 ]
 
-# Bylines documented in published reporting as invented personas, and real
-# writers documented as impersonated. A name match is never proof: real people
-# share these names. Add a case only with a public source.
+# Bylines documented in published reporting as invented personas, real writers
+# documented as impersonated, and invented experts quoted as sources. A name
+# match is never proof: real people share these names. Add a case only with a
+# public source. personas.json in the repo holds the same list as open data
+# (python byline_check.py --cases writes it); a test keeps the two in step.
+PG_TRACKER = "https://pressgazette.co.uk/publishers/digital-journalism/ai-journalism-mistakes/"
+PG_BLANCHARD = "https://pressgazette.co.uk/publishers/digital-journalism/margaux-blanchard-wired-ai-editors-journalist/"
+PG_EXPERTS = "https://pressgazette.co.uk/news/prominent-art-therapist-quoted-by-vice-forbes-and-others-is-ai-generated/"
+CBC_ROBSON = "https://www.cbc.ca/news/canada/daniel-robson-suspected-fake-ai-persona-9.7363967"
+TT_ROBSON = ("https://www.turkiyetoday.com/world/exclusivefake-ai-columnist-dupes-canadian-press-to-target-"
+             "moroccan-dissidents-and-a-t-3229120")
 OPENAI_2026 = "https://openai.com/index/disrupting-ai-enabled-false-front-operations/"
+JONES_2026 = "https://marcowenjones.substack.com/p/operation-bogus-bylines-the-pro-iran"
+CJR_WILLIAMS = "https://www.cjr.org/analysis/fake-caroline-williams-science-nature-magazine-ai-influx-pitches.php"
+KUOW_CAMPBELL = ("https://kuow.org/technology/2026-10-12/scammers-used-ai-to-impersonate-me-a-kuow-reporter-"
+                 "heres-how-to-avoid-such-traps")
 BOGUS_BYLINES = ("one of seven fake journalist personas in the 'Bogus Bylines' operation that OpenAI "
                  "reported on 8 Oct 2026; almost 100 articles ran under them in about a dozen "
                  "outlets between July 2025 and October 2026.")
 WE_NEWS = ("an AI-generated staff persona of the We News site, reported by The Canadian Press on "
            "3 Oct 2026.")
 WE_NEWS_SOURCE = "https://www.cp24.com/news/canada/2026/10/03/byline-or-bot-ai-generated-journalists-start-to-appear-in-canada/"
+MEMO = ("Middle East Monitor", "middleeastmonitor.com")
+PEACEVOICE = ("PeaceVoice", "peacevoice.info")
+CASE_KINDS = {
+    "invented": "a byline found by a publisher or platform not to belong to a real writer",
+    "impersonated": "a real writer whose name an impostor used",
+    "fake_expert": "an invented expert quoted as a source",
+}
+
+
+def _case(name, kind, what, reported, sources, outlets=(), removed_by=()):
+    """One documented case. outlets are (name, domain) pairs; domain is None
+    when no source confirms it."""
+    return {"name": name, "kind": kind, "what": what, "reported": reported,
+            "sources": list(sources),
+            "outlets": [{"name": o, "domain": d} for o, d in outlets],
+            "removed_by": list(removed_by)}
+
+
 PERSONAS = [
-    ("Margaux Blanchard", "invented",
-     "stories WIRED, Business Insider and other outlets removed in 2025; the writer could not "
-     "be shown to exist.",
-     "https://pressgazette.co.uk/publishers/digital-journalism/margaux-blanchard-wired-ai-editors-journalist/"),
-    ("Daniel Robson", "invented",
-     "a persona whose columns the Ottawa Citizen and other outlets removed in September 2026; "
-     "he communicated only by email and refused a video call.",
-     "https://www.cbc.ca/news/canada/daniel-robson-suspected-fake-ai-persona-9.7363967"),
-    ("Ervin B. Hoskins", "invented", BOGUS_BYLINES, OPENAI_2026),
-    ("Noah Lamington", "invented", BOGUS_BYLINES, OPENAI_2026),
-    ("Sophia Gonzalez", "invented", BOGUS_BYLINES, OPENAI_2026),
-    ("Michael Harrison", "invented", BOGUS_BYLINES, OPENAI_2026),
-    ("Ericka Feusier", "invented", BOGUS_BYLINES, OPENAI_2026),
-    ("Jenny Williams", "invented", BOGUS_BYLINES, OPENAI_2026),
-    ("Alice Johnson", "invented", BOGUS_BYLINES, OPENAI_2026),
-    ("Geneviève Tremblay", "invented", WE_NEWS, WE_NEWS_SOURCE),
-    ("Gordon Halloway", "invented", WE_NEWS, WE_NEWS_SOURCE),
-    ("Caroline Williams", "impersonated",
-     "a real science journalist. In 2026 an impostor used her name and clips to sell Science a "
-     "story, which Science removed three months later, and then pitched Science and Knowable again.",
-     "https://www.cjr.org/analysis/fake-caroline-williams-science-nature-magazine-ai-influx-pitches.php"),
-    ("Katie Campbell", "impersonated",
-     "a real KUOW reporter. In 2026 scammers used her name and Gmail addresses made to look like "
-     "KUOW's to email book authors, then asked them to pay for interviews.",
-     "https://kuow.org/technology/2026-10-12/scammers-used-ai-to-impersonate-me-a-kuow-reporter-heres-how-to-avoid-such-traps"),
+    _case("Margaux Blanchard", "invented",
+          "stories WIRED, Business Insider and other outlets removed in 2025; the writer could not "
+          "be shown to exist.", "2025-08", [PG_BLANCHARD],
+          [("WIRED", "wired.com"), ("Business Insider", "businessinsider.com"), ("SFGate", "sfgate.com"),
+           ("Cone Magazine", None), ("Naked Politics", None), ("Index on Censorship", "indexoncensorship.org")],
+          ["WIRED", "Business Insider", "SFGate", "Cone Magazine", "Naked Politics"]),
+    _case("Daniel Robson", "invented",
+          "a persona whose columns the Ottawa Citizen and other outlets removed in September 2026; "
+          "he communicated only by email and refused a video call.", "2026-09",
+          [CBC_ROBSON, TT_ROBSON, PG_TRACKER],
+          [("Ottawa Citizen", "ottawacitizen.com"), ("Montreal Gazette", "montrealgazette.com"),
+           ("Policy Options", "policyoptions.irpp.org"), ("Western Standard", "westernstandard.news"),
+           ("The Hub", "thehub.ca"), ("Open Canada", "opencanada.org"), ("Yahoo News", None)],
+          ["Ottawa Citizen", "Montreal Gazette", "Policy Options", "Western Standard", "The Hub", "Open Canada"]),
+    _case("Ervin B. Hoskins", "invented", BOGUS_BYLINES, "2026-10", [OPENAI_2026, JONES_2026, PG_TRACKER],
+          [MEMO, PEACEVOICE, ("Black Star News", "blackstarnews.com"), ("Emmitsburg.net", "emmitsburg.net"),
+           ("Port St. Joe Star", None), ("Apalachicola Times", None)],
+          ["Middle East Monitor", "Port St. Joe Star"]),
+    _case("Noah Lamington", "invented", BOGUS_BYLINES, "2026-10", [OPENAI_2026, JONES_2026],
+          [("Asia Times", "asiatimes.com"), ("International Policy Digest", "intpolicydigest.org")]),
+    _case("Sophia Gonzalez", "invented", BOGUS_BYLINES, "2026-10", [OPENAI_2026, JONES_2026],
+          [PEACEVOICE, ("CounterPunch", "counterpunch.org"), ("ZNetwork", "znetwork.org"),
+           ("News-Register", "newsregister.com"), ("LA Progressive", "laprogressive.com"),
+           ("Antiwar.com", "antiwar.com")]),
+    _case("Michael Harrison", "invented", BOGUS_BYLINES, "2026-10", [OPENAI_2026, JONES_2026],
+          [MEMO], ["Middle East Monitor"]),
+    _case("Ericka Feusier", "invented", BOGUS_BYLINES, "2026-10", [OPENAI_2026, JONES_2026],
+          [("Foreign Policy in Focus", "fpif.org"), ("Eurasia Review", "eurasiareview.com")]),
+    _case("Jenny Williams", "invented", BOGUS_BYLINES, "2026-10", [OPENAI_2026, JONES_2026],
+          [MEMO, ("NationofChange", "nationofchange.org")], ["Middle East Monitor"]),
+    _case("Alice Johnson", "invented", BOGUS_BYLINES, "2026-10", [OPENAI_2026, JONES_2026],
+          [MEMO, ("Fair Observer", "fairobserver.com"), ("Libertarian Institute", "libertarianinstitute.org")],
+          ["Middle East Monitor"]),
+    _case("Geneviève Tremblay", "invented", WE_NEWS, "2026-10", [WE_NEWS_SOURCE], [("We News", None)]),
+    _case("Gordon Halloway", "invented", WE_NEWS, "2026-10", [WE_NEWS_SOURCE], [("We News", None)]),
+    _case("Caroline Williams", "impersonated",
+          "a real science journalist. In 2026 an impostor used her name and clips to sell Science a "
+          "story, which Science removed three months later, and then pitched Science and Knowable again.",
+          "2026-09", [CJR_WILLIAMS], [("Science", "science.org")], ["Science"]),
+    _case("Katie Campbell", "impersonated",
+          "a real KUOW reporter. In 2026 scammers used her name and Gmail addresses made to look like "
+          "KUOW's to email book authors, then asked them to pay for interviews.",
+          "2026-10", [KUOW_CAMPBELL]),
+    _case("Ruth Jackson-Kirby", "impersonated",
+          "a real UK personal-finance journalist. In 2026 an impostor pitched FinanceBuzz from an address "
+          "resembling hers, citing her work history; FinanceBuzz ran articles under her name with an author "
+          "page showing an AI photo, then took her name and the page down when she objected.",
+          "2026-09", [PG_TRACKER], [("FinanceBuzz", "financebuzz.com")], ["FinanceBuzz"]),
+    _case("Eleni Nicolaou", "fake_expert",
+          "an art-therapist persona, 'Dr Eleni Nicolaou', quoted more than 30 times in 2026 by outlets "
+          "including Forbes, Vice, Glamour, Tom's Guide and Parade; Press Gazette found she appeared to be "
+          "AI-generated, and Qwoted removed her profile.",
+          "2026-09", [PG_EXPERTS],
+          [("Forbes", "forbes.com"), ("Vice", "vice.com"), ("Glamour", "glamour.com"),
+           ("Tom's Guide", "tomsguide.com"), ("Parade", "parade.com"), ("Netmums", "netmums.com"),
+           ("AOL", "aol.com"), ("Yahoo", "yahoo.com")],
+          ["Qwoted"]),
+    _case("Jacob Elban", "fake_expert",
+          "a 'business expert' persona offered to journalists by the same company as 'Dr Eleni Nicolaou'; "
+          "Qwoted and Pressflow removed his profile in September 2026 over doubts that he was real.",
+          "2026-09", [PG_EXPERTS], [("PR On the Go", None)], ["Qwoted", "Pressflow"]),
 ]
 
 # Webmail names that end like a web address (k.campbelkuow.org@gmail.com in
@@ -353,6 +420,61 @@ def _host(url):
         return ""
 
 
+# --- documented cases -------------------------------------------------------
+
+def cases_dataset():
+    """The documented cases as open data, the content of personas.json."""
+    return {
+        "dataset": "byline-check documented cases",
+        "version": __version__,
+        "homepage": "https://github.com/munimv2/byline-check",
+        "licence": "MIT",
+        "kinds": CASE_KINDS,
+        "note": "Only cases a publisher, platform or the impersonated writer has documented in public, "
+                "each with its sources. Real people share these names: a match means verify, never fake. "
+                "outlets lists where the byline or expert appeared; domain is null when no source confirms it. "
+                "reported is the month the case was first reported.",
+        "cases": PERSONAS,
+    }
+
+
+def persona_matches(name, kinds=None):
+    """Documented cases whose name matches this one (2+ words, either direction)."""
+    if len(normalize_name(name).split()) < 2:
+        return []
+    return [{"name": p["name"], "kind": p["kind"], "what": p["what"], "source": p["sources"][0],
+             "sources": p["sources"], "outlets": [o["name"] for o in p["outlets"]]}
+            for p in PERSONAS
+            if (kinds is None or p["kind"] in kinds)
+            and (name_matches(name, p["name"]) or name_matches(p["name"], name))]
+
+
+def persona_bylines(bylines, author_urls=(), url=""):
+    """Documented invented personas among a clip's bylines and author pages,
+    with the outlet if the clip is on one documented as running that persona."""
+    host = _host(url)
+    out = []
+    for byline in list(bylines) + [slug_name(u) for u in author_urls]:
+        for hit in persona_matches(byline, kinds=("invented",)):
+            if any(h["name"] == hit["name"] for h in out):
+                continue
+            case = next(p for p in PERSONAS if p["name"] == hit["name"])
+            outlet = next((o["name"] for o in case["outlets"]
+                           if o["domain"] and host_matches(host, o["domain"])), None)
+            out.append({"name": hit["name"], "byline": byline, "source": hit["source"], "outlet": outlet})
+    return out
+
+
+def fake_experts(people):
+    """Documented invented experts among the people quoted in a draft or clip."""
+    out = []
+    for person in people:
+        for hit in persona_matches(person, kinds=("fake_expert",)):
+            if not any(h["name"] == hit["name"] for h in out):
+                out.append(dict(hit, quoted_as=person))
+    return out
+
+
 # --- pitch, draft and page analysis -----------------------------------------
 
 def red_flags(text):
@@ -365,15 +487,6 @@ def red_flags(text):
                 found.append({"flag": key, "label": label, "match": _snippet(text, m.start(), m.end()), "why": why})
                 break
     return found
-
-
-def persona_matches(name):
-    """Documented invented or impersonated bylines that match the name on the pitch."""
-    if len(normalize_name(name).split()) < 2:
-        return []
-    return [{"name": p, "kind": kind, "what": what, "source": source}
-            for p, kind, what, source in PERSONAS
-            if name_matches(name, p) or name_matches(p, name)]
 
 
 def lookalike_addresses(addresses):
@@ -626,7 +739,7 @@ def jsonld_authors(blocks):
     return names
 
 
-def analyze_page(html, name):
+def analyze_page(html, name, url=""):
     """Bylines, removal notices and quoted people on one published clip."""
     p = _parse_html(html)
     meta = [re.sub(r"^by\s+", "", v, flags=re.IGNORECASE) for k, v in p.meta if k in BYLINE_META]
@@ -634,6 +747,7 @@ def analyze_page(html, name):
     bylines = [b for b in found if not URL_ONLY_RE.match(b)]
     author_urls = [b for b in found if URL_ONLY_RE.match(b)]
     text = p.text()
+    people = quoted_people(text, exclude=name)
     return {
         "title": " ".join(p.title.split()),
         "bylines": bylines,
@@ -642,7 +756,9 @@ def analyze_page(html, name):
                          or any(slug_matches(name, u) for u in author_urls)),
         "name_on_page": name_in_text(name, text),
         "removal_notices": removal_notices(text),
-        "people_quoted": quoted_people(text, exclude=name),
+        "people_quoted": people,
+        "persona_bylines": persona_bylines(bylines, author_urls, url),
+        "fake_experts_quoted": fake_experts(people),
     }
 
 
@@ -864,7 +980,8 @@ def check_clip(url, name, fetch_fn):
     res = {"url": url, "status": None, "final_url": None, "error": None, "redirected_home": False,
            "blocked": False, "read_from": None, "archived_on": None, "title": "", "bylines": [],
            "author_urls": [], "byline_match": False, "name_on_page": False, "removal_notices": [],
-           "people_quoted": [], "first_archived": None, "archive_error": None}
+           "people_quoted": [], "persona_bylines": [], "fake_experts_quoted": [],
+           "first_archived": None, "archive_error": None}
     reply = fetch_fn(url)
     res["status"], res["final_url"], res["error"] = reply.get("status"), reply.get("url"), reply.get("error")
     res["redirected_home"] = _redirected_home(url, reply.get("url"))
@@ -872,7 +989,7 @@ def check_clip(url, name, fetch_fn):
     if html and is_challenge_page(html):
         res["blocked"] = True
     elif html and not res["redirected_home"]:
-        res.update(analyze_page(html, name))
+        res.update(analyze_page(html, name, url))
         res["read_from"] = "live"
     _first_archived(url, fetch_fn, res)
     if res["read_from"] is None and res["first_archived"]:
@@ -880,7 +997,7 @@ def check_clip(url, name, fetch_fn):
         if capture:
             archived = fetch_fn(archived_copy_url(*capture))
             if archived.get("text") and not is_challenge_page(archived["text"]):
-                res.update(analyze_page(archived["text"], name))
+                res.update(analyze_page(archived["text"], name, url))
                 res["read_from"] = "wayback"
                 res["archived_on"] = _ts_date(capture[0])
     return res
@@ -930,8 +1047,10 @@ HUMAN_STEPS = [
     "column because it trusted the syndicator.",
     "Ask for an annotated draft or the document's version history. The Local now asks authors "
     "for annotated drafts, and some freelancers offer editors their Google Docs history.",
-    "Before publishing, confirm every quote with the person quoted. Science removed a story "
-    "after two of its quotes turned out to come from other writers' published stories.",
+    "Before publishing, confirm every quote with the person quoted, and check that each expert "
+    "exists outside expert-matching services. Science removed a story after two of its quotes "
+    "turned out to come from other writers' published stories, and in 2026 an invented art "
+    "therapist was quoted more than 30 times before a source-matching service removed her.",
     "Do not rely on AI-text detectors: two of them rated the fabricated WIRED feature as "
     "likely human-written.",
 ]
@@ -961,6 +1080,7 @@ def run_checks(name, pitch="", draft="", clips=(), sites=(), fetch_fn=None, toda
                 free_mail.append(d)
         elif d and d not in domains:
             domains.append(d)
+    draft_people = quoted_people(draft, exclude=name)
     report = {
         "tool": "byline-check",
         "version": __version__,
@@ -976,7 +1096,8 @@ def run_checks(name, pitch="", draft="", clips=(), sites=(), fetch_fn=None, toda
         "claimed_outlets_without_clips": unbacked_outlets(claimed_outlets(pitch), clip_urls),
         "free_mail_domains": free_mail,
         "draft_quotes": [{"quote": q, "search": search_links(q)} for q in extract_quotes(draft)],
-        "draft_people_quoted": quoted_people(draft, exclude=name),
+        "draft_people_quoted": draft_people,
+        "draft_fake_experts": fake_experts(draft_people),
         "clip_urls": clip_urls,
         "clips": [],
         "domains_to_check": domains,
@@ -1004,10 +1125,15 @@ def _persona_lines(r):
                          "through contact details you find yourself and ask them to confirm this pitch. "
                          "Source: %s"
                          % (p["name"], p["what"], p["source"]))
-        else:
-            lines.append("- **Check:** %s was the byline of %s Real people share names, so this proves "
+        elif p["kind"] == "fake_expert":
+            lines.append("- **Check:** %s is the name of %s Real people share names, so this proves "
                          "nothing alone; confirm who you are dealing with on a live call. Source: %s"
                          % (p["name"], p["what"], p["source"]))
+        else:
+            outlets = " Documented outlets: %s." % ", ".join(p["outlets"]) if p["outlets"] else ""
+            lines.append("- **Check:** %s was the byline of %s%s Real people share names, so this proves "
+                         "nothing alone; confirm who you are dealing with on a live call. Source: %s"
+                         % (p["name"], p["what"], outlets, p["source"]))
     return lines
 
 
@@ -1052,6 +1178,14 @@ def _clip_lines(c):
             lines.append("- **Check:** no byline found and the name is not in the page text")
         if c["author_urls"] and not c["byline_match"]:
             lines.append("- Author links in page data: %s" % "; ".join(c["author_urls"]))
+        for p in c["persona_bylines"]:
+            where = ("This clip is on %s, an outlet documented as having run that persona." % p["outlet"]
+                     if p["outlet"] else "Real people share names; check whether this is a namesake.")
+            lines.append("- **Check:** the byline %s matches %s, a documented invented persona. %s Source: %s"
+                         % (p["byline"], p["name"], where, p["source"]))
+        for p in c["fake_experts_quoted"]:
+            lines.append("- **Check:** the clip quotes %s, the name of %s Source: %s"
+                         % (p["quoted_as"], p["what"], p["source"]))
     for notice in c["removal_notices"]:
         lines.append("- **Possible notice (read it):** %s" % notice)
     if c["first_archived"]:
@@ -1154,6 +1288,10 @@ def render_markdown(r):
         out.append("- No long direct quotes found (or no draft given).")
     if r["draft_people_quoted"]:
         out.append("- Sources named in the draft (confirm each one): %s" % ", ".join(r["draft_people_quoted"]))
+    for p in r["draft_fake_experts"]:
+        out.append("- **Check:** the draft quotes %s, the name of %s Real people share names; confirm "
+                   "that this source exists and spoke to the writer. Source: %s"
+                   % (p["quoted_as"], p["what"], p["source"]))
     out += ["", "## 5. Still to do by a person"]
     out += ["%d. %s" % (i, step) for i, step in enumerate(r["human_steps"], 1)]
     return "\n".join(out)
@@ -1170,7 +1308,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser(
         prog="byline-check",
         description="Verification worksheet for an editor vetting a freelance pitch.")
-    ap.add_argument("--name", required=True, help="the byline the writer uses")
+    ap.add_argument("--name", help="the byline the writer uses (required unless --cases)")
     ap.add_argument("--pitch", help="the pitch and any correspondence: a text file, or a saved email (.eml)")
     ap.add_argument("--draft", help="text file with the submitted draft")
     ap.add_argument("--clip", action="append", default=[],
@@ -1179,16 +1317,23 @@ def main(argv=None):
                     help="the writer's own website or email domain (repeatable)")
     ap.add_argument("--offline", action="store_true", help="check the text only; fetch nothing")
     ap.add_argument("--json", action="store_true", help="print JSON instead of Markdown")
+    ap.add_argument("--cases", action="store_true",
+                    help="print the documented cases (personas.json) as JSON and exit")
     ap.add_argument("--out", help="write the worksheet to this file (UTF-8) instead of stdout")
     ap.add_argument("--version", action="version", version="byline-check " + __version__)
     args = ap.parse_args(argv)
-    pitch, sender = _read(args.pitch), None
-    if args.pitch and looks_like_email(pitch, args.pitch):
-        sender = parse_email(pitch)
-        pitch = sender["text"]
-    report = run_checks(args.name, pitch, _read(args.draft), args.clip, args.site,
-                        None if args.offline else fetch, sender=sender)
-    text = json.dumps(report, indent=2, ensure_ascii=False) if args.json else render_markdown(report)
+    if args.cases:
+        text = json.dumps(cases_dataset(), indent=2, ensure_ascii=False)
+    else:
+        if not args.name:
+            ap.error("--name is required (or use --cases)")
+        pitch, sender = _read(args.pitch), None
+        if args.pitch and looks_like_email(pitch, args.pitch):
+            sender = parse_email(pitch)
+            pitch = sender["text"]
+        report = run_checks(args.name, pitch, _read(args.draft), args.clip, args.site,
+                            None if args.offline else fetch, sender=sender)
+        text = json.dumps(report, indent=2, ensure_ascii=False) if args.json else render_markdown(report)
     if args.out:
         with open(args.out, "w", encoding="utf-8") as fh:
             fh.write(text + "\n")

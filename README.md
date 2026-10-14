@@ -25,28 +25,29 @@ Python 3.8+, standard library only, one file. MIT licensed.
 
 | Input | Check |
 |---|---|
-| Writer's name (`--name`) | Whether the name is a byline already documented as an invented persona (the seven 'Bogus Bylines' personas, 'Margaux Blanchard', 'Daniel Robson', We News staff personas), or a real writer documented as impersonated. Each match gives its public source. Real people share names, so a match is a reason to verify, not proof. The full list and its sources are in [CASES.md](CASES.md). |
+| Writer's name (`--name`) | Whether the name is a byline already documented as an invented persona (the seven 'Bogus Bylines' personas, 'Margaux Blanchard', 'Daniel Robson', We News staff personas), a real writer documented as impersonated, or a documented fake expert. Each match gives its public source and, for personas, the outlets that ran them. Real people share names, so a match is a reason to verify, not proof. The full list and its sources are in [CASES.md](CASES.md) and, as open data, [personas.json](personas.json). |
 | Pitch and emails (`--pitch`, a text file or a saved `.eml` email) | Phrases that match documented fake-freelancer patterns, such as email-only contact ("can't do a call") or payment outside the normal system (PayPal, checks, gift cards, crypto). Each flag says which case it comes from. |
 | | Outlets the pitch names (WIRED, Business Insider, The Guardian and about 60 more) that none of the supplied clips comes from. |
 | | Every link in the pitch is treated as a claimed clip. |
 | | Webmail addresses dressed up as an organisation's, such as `k.campbelkuow.org@gmail.com`, the kind of address used to impersonate a KUOW reporter in 2026. |
 | | From a saved email: the sending address, a Reply-To that points somewhere else, and SPF, DKIM or DMARC failures recorded by your own mail server. |
-| Claimed clips (`--clip URL`, repeatable) | Does the page load? Is it gone (404) or redirected to the home page, which can mean the story was removed? Whose byline is in the page data (meta tags, schema.org JSON-LD including Yoast-style `@id` references, `rel=author`, author-page URLs)? Does the page carry an editor's note, a removal notice or the word "impersonating"? When did the Wayback Machine first save it? Who is quoted in it, so you can contact them yourself? If the live page refuses scripts, sends a bot check page or is gone, the byline is read from the Wayback Machine's latest normal capture instead. |
+| Claimed clips (`--clip URL`, repeatable) | Does the page load? Is it gone (404) or redirected to the home page, which can mean the story was removed? Whose byline is in the page data (meta tags, schema.org JSON-LD including Yoast-style `@id` references, `rel=author`, author-page URLs)? Is that byline or author page a documented invented persona, and is the clip on an outlet documented as having run it? Does the page carry an editor's note, a removal notice or the word "impersonating"? When did the Wayback Machine first save it? Who is quoted in it, so you can contact them yourself, and does any of them match a documented fake expert? If the live page refuses scripts, sends a bot check page or is gone, the page is read from the Wayback Machine's latest normal capture instead. |
 | Writer's own site (`--site`) | The email addresses the site lists (including `mailto:` links and Cloudflare-hidden addresses) on the given page, or on the home, `/contact` and `/about` pages. If none of them is the address the pitch came from, the worksheet says so. That is the impersonation pattern from the 2026 Science case. |
 | Writer's domains (`--site`, plus any non-webmail address in the pitch) | Registration date from RDAP (flagged if less than a year old) and first Wayback Machine capture. |
-| Submitted draft (`--draft`) | Every direct quote of 8 words or more, each with exact-phrase search links for Google, Bing and DuckDuckGo, so you can see whether it was lifted from an earlier story. The worksheet also lists the people named as sources. |
+| Submitted draft (`--draft`) | Every direct quote of 8 words or more, each with exact-phrase search links for Google, Bing and DuckDuckGo, so you can see whether it was lifted from an earlier story. The worksheet also lists the people named as sources and flags any that match a documented fake expert, such as the invented art therapist quoted more than 30 times in 2026. |
 
 Then it lists the steps no tool can do for you: a live call that tests the writer on their own
 pitch, confirming the pitch through contact details you find yourself, payment through your
 normal system, contacting earlier sources and editors (and asking how those editors verified the
-writer), asking for an annotated draft or version history, and confirming every quote before
-publication.
+writer), asking for an annotated draft or version history, and confirming every quote, and that
+every expert exists, before publication.
 
 ## Usage
 
 ```
 python byline_check.py --name NAME [--pitch FILE] [--draft FILE] [--clip URL ...]
                        [--site DOMAIN ...] [--offline] [--json] [--out FILE]
+python byline_check.py --cases [--out personas.json]
 ```
 
 - `--pitch` takes plain text or a saved email. In Gmail use "Download message" and in Outlook
@@ -55,6 +56,17 @@ python byline_check.py --name NAME [--pitch FILE] [--draft FILE] [--clip URL ...
 - `--offline` checks the text only and fetches nothing.
 - `--json` prints the full machine-readable report instead of Markdown.
 - `--out sheet.md` writes the worksheet to a UTF-8 file.
+- `--cases` prints the documented cases as JSON (the content of `personas.json`).
+
+### The documented cases as open data
+
+[personas.json](personas.json) lists every documented invented byline, impersonated writer and
+invented expert the tool knows, each with what happened, the month it was reported, its public
+sources, the outlets where the name appeared (with web domains where a source confirms them) and
+who removed the work. It is MIT licensed, so trust-and-safety teams, researchers and other tools
+can use it. Only cases a publisher, platform or the impersonated writer has documented in public
+are included; [CASES.md](CASES.md) explains what is left out and why. Corrections and new sourced
+cases are welcome as issues or pull requests.
 
 ### If someone says they are a reporter
 
@@ -104,7 +116,7 @@ Without `--offline`, the tool fetches each clip URL directly, and the pages of e
 described above. It sends each clip URL and domain to the Wayback Machine's CDX API
 (web.archive.org), and fetches saved copies from it when a live clip can't be read. It sends each
 domain to rdap.org. It sends nothing else anywhere. It never sends the pitch, the email or the
-draft. The search links are only printed, not opened. The list of documented personas is built
+draft. The search links are only printed, not opened. The list of documented cases is built
 in, so checking a name sends nothing. Some news sites refuse requests from scripts (HTTP 403) or
 answer with a bot check page; the worksheet then falls back to the Wayback Machine and tells you
 to open the link in a browser.
@@ -112,15 +124,18 @@ to open the link in a browser.
 ## Limits
 
 - A matching byline shows that the clip exists, not that the person pitching you wrote it. The
-  impostor in the Science case used a real writer's name and clips. Confirm the pitch through
-  the writer's own contact details.
-- The persona list only holds names documented in published reporting, and several of them
+  impostors in the Science and FinanceBuzz cases used real writers' names and clips. Confirm the
+  pitch through the writer's own contact details.
+- The case list only holds names documented in published reporting, and several of them
   (Jenny Williams, Alice Johnson, Michael Harrison, Sophia Gonzalez) are common names. A match
-  says "verify", never "fake". A name that is not on the list tells you nothing.
+  says "verify", never "fake". A name that is not on the list tells you nothing. A persona byline
+  on an outlet documented as having run that persona is much stronger evidence than the same name
+  elsewhere, and the worksheet says which one it found.
 - Bylines are matched by words, so "Jane Doe" matches "Jane Q. Doe". A missing byline in the page
   data is a reason to look, not proof. Some sites only put bylines in rendered JavaScript.
 - The list of quoted people comes from attribution patterns ("said X", "X, a ..., said",
-  "according to X"). It misses some names and sometimes lists organisations.
+  "according to X"). It misses some names and sometimes lists organisations, so a fake expert
+  quoted in another pattern is not flagged.
 - A red-flag phrase is not evidence of fraud. Many real freelancers use PayPal or prefer email.
 - Domain age says nothing about writers who use webmail. Most real freelancers use webmail too.
 - Email checks read only the top `Authentication-Results` header, the one your own mail server
@@ -146,6 +161,10 @@ sources. The main ones:
   emailed the impostor. The same report describes Undark finding on a voice call that a writer
   did not know the material in her own pitch.
   https://www.cjr.org/analysis/fake-caroline-williams-science-nature-magazine-ai-influx-pitches.php
+- Press Gazette, "Prominent art therapist quoted by Vice, Forbes and others is AI-generated"
+  (18 Sept 2026): an invented expert was quoted more than 30 times through an expert-matching
+  service before it removed her profile.
+  https://pressgazette.co.uk/news/prominent-art-therapist-quoted-by-vice-forbes-and-others-is-ai-generated/
 - Ottawa Citizen (29 Sept 2026): after removing columns by a persona that "does not seem to be a
   real person" and said he could only communicate by email, the paper now asks new opinion writers
   to meet a staff journalist in person and pose for a photo.
@@ -175,10 +194,18 @@ sources. The main ones:
 python -m unittest -v test_byline_check.py
 ```
 
-The tests use saved HTML, emails and API replies, so they need no network.
+The tests use saved HTML, emails and API replies, so they need no network. One test checks that
+`personas.json` holds exactly the cases built into the tool.
 
 ## Changes
 
+- 0.4.0: publishes the documented cases as open data in `personas.json` (also printed by
+  `--cases`), with each case's sources, the outlets that ran the name and who removed it; flags a
+  clip whose byline or author page is a documented invented persona, and says when the clip is on
+  an outlet documented as having run that persona; adds documented fake experts ('Dr Eleni
+  Nicolaou', Jacob Elban) and flags them among the sources quoted in a draft or clip; adds the
+  impersonation of Ruth Jackson-Kirby at FinanceBuzz; the step on confirming quotes now also asks
+  you to check that each expert exists.
 - 0.3.0: flags a writer's name that matches a byline documented as an invented persona (OpenAI's
   seven 'Bogus Bylines' personas, 'Margaux Blanchard', 'Daniel Robson', We News personas) or a
   real writer documented as impersonated, with the source for each; flags webmail addresses
@@ -196,7 +223,7 @@ The tests use saved HTML, emails and API replies, so they need no network.
 
 ## About
 
-Made by MV2 of Munim, Inc. The code and this README were written with AI agents working in his
-name. Issues and pull requests are welcome, especially new red-flag patterns and documented
-personas that come from published cases (please include the source) and byline markup the parser
+Made by MV2 of Munim, Inc. The code, the dataset and this README were made with AI agents working
+in his name. Issues and pull requests are welcome, especially new red-flag patterns and documented
+cases that come from published reporting (please include the source) and byline markup the parser
 misses. Contact: munimversion2@gmail.com.
