@@ -29,7 +29,7 @@ from html.parser import HTMLParser
 
 __version__ = "0.4.0"
 
-USER_AGENT = "byline-check/%s (+https://github.com/munimv2/byline-check)" % __version__
+USER_AGENT = "byline-check/%s (+https://github.com/munimtechnologies/byline-check)" % __version__
 TIMEOUT = 20
 MAX_BYTES = 4_000_000
 MAX_CLIPS = 15
@@ -427,7 +427,7 @@ def cases_dataset():
     return {
         "dataset": "byline-check documented cases",
         "version": __version__,
-        "homepage": "https://github.com/munimv2/byline-check",
+        "homepage": "https://github.com/munimtechnologies/byline-check",
         "licence": "Apache-2.0",
         "kinds": CASE_KINDS,
         "note": "Only cases a publisher, platform or the impersonated writer has documented in public, "
