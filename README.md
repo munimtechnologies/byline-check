@@ -19,7 +19,7 @@ evidence and lists what a person still has to verify.
 python byline_check.py --name "Jane Doe" --pitch pitch.eml --draft draft.txt --site janedoe.com
 ```
 
-Python 3.8+, standard library only, one file. MIT licensed.
+Python 3.8+, standard library only, one file. Apache-2.0 licensed.
 
 ## What it checks
 
@@ -63,7 +63,7 @@ python byline_check.py --cases [--out personas.json]
 [personas.json](personas.json) lists every documented invented byline, impersonated writer and
 invented expert the tool knows, each with what happened, the month it was reported, its public
 sources, the outlets where the name appeared (with web domains where a source confirms them) and
-who removed the work. It is MIT licensed, so trust-and-safety teams, researchers and other tools
+who removed the work. It is Apache-2.0 licensed, so trust-and-safety teams, researchers and other tools
 can use it. Only cases a publisher, platform or the impersonated writer has documented in public
 are included; [CASES.md](CASES.md) explains what is left out and why. Corrections and new sourced
 cases are welcome as issues or pull requests.

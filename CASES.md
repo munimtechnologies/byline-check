@@ -7,7 +7,7 @@ To add a case, open an issue or pull request with a public source.
 Dates are when the case was reported. Quotes are from the linked sources.
 
 The documented names below are also published as open data in [personas.json](personas.json)
-(MIT): name, kind, what happened, month reported, sources, the outlets where the byline or expert
+(Apache-2.0): name, kind, what happened, month reported, sources, the outlets where the byline or expert
 appeared (with web domains where a source confirms them), and who removed the work.
 `python byline_check.py --cases` prints the same data.
 

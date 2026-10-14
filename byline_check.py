@@ -428,7 +428,7 @@ def cases_dataset():
         "dataset": "byline-check documented cases",
         "version": __version__,
         "homepage": "https://github.com/munimv2/byline-check",
-        "licence": "MIT",
+        "licence": "Apache-2.0",
         "kinds": CASE_KINDS,
         "note": "Only cases a publisher, platform or the impersonated writer has documented in public, "
                 "each with its sources. Real people share these names: a match means verify, never fake. "

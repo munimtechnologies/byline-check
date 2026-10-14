@@ -2,7 +2,7 @@
   "dataset": "byline-check documented cases",
   "version": "0.4.0",
   "homepage": "https://github.com/munimv2/byline-check",
-  "licence": "MIT",
+  "licence": "Apache-2.0",
   "kinds": {
     "invented": "a byline found by a publisher or platform not to belong to a real writer",
     "impersonated": "a real writer whose name an impostor used",
